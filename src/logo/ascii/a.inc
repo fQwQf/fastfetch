@@ -339,6 +339,19 @@ static const FFlogo A[] = {
         .colorTitle = FF_COLOR_FG_DEFAULT,
     },
     #endif
+    #ifdef FASTFETCH_DATATEXT_LOGO_A20OS
+    // A20OS
+    {
+        .names = { "A20OS" },
+        .lines = FASTFETCH_DATATEXT_LOGO_A20OS,
+        .colors = {
+            FF_COLOR_FG_CYAN,
+            FF_COLOR_FG_BLUE,
+        },
+        .colorKeys = FF_COLOR_FG_CYAN,
+        .colorTitle = FF_COLOR_FG_BLUE,
+    },
+    #endif
     #ifdef FASTFETCH_DATATEXT_LOGO_AOSCOSRETRO
     // AoscOsRetro
     {
