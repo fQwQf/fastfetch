@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "common/memrchr.h"
+#include "common/arrutil.h"
 
 #ifdef FF_USE_SYSTEM_YYJSON
     #include <yyjson.h>
@@ -221,9 +222,7 @@ static inline void ffStrbufClear(FFstrbuf* strbuf) {
 }
 
 static inline void ffStrbufAppendC(FFstrbuf* strbuf, char c) {
-    if (__builtin_expect(ffStrbufGetFree(strbuf) == 0, false)) {
-        ffStrbufEnsureFreeNoCheck(strbuf, 1);
-    }
+    ffStrbufEnsureFree(strbuf, 1);
     strbuf->chars[strbuf->length++] = c;
     strbuf->chars[strbuf->length] = '\0';
 }
@@ -232,9 +231,7 @@ static inline void ffStrbufAppendNC(FFstrbuf* strbuf, uint32_t num, char c) {
     if (__builtin_expect(num == 0, false)) {
         return;
     }
-    if (__builtin_expect(ffStrbufGetFree(strbuf) < num, false)) {
-        ffStrbufEnsureFreeNoCheck(strbuf, num);
-    }
+    ffStrbufEnsureFree(strbuf, num);
 
     memset(&strbuf->chars[strbuf->length], c, num);
     strbuf->length += num;
@@ -245,9 +242,7 @@ static inline void ffStrbufAppendNS(FFstrbuf* strbuf, uint32_t length, const cha
     if (__builtin_expect(value == nullptr || length == 0, false)) {
         return;
     }
-    if (__builtin_expect(ffStrbufGetFree(strbuf) < length, false)) {
-        ffStrbufEnsureFreeNoCheck(strbuf, length);
-    }
+    ffStrbufEnsureFree(strbuf, length);
 
     memcpy(&strbuf->chars[strbuf->length], value, length);
     strbuf->length += length;
@@ -634,3 +629,4 @@ static inline void ffStrbufPutTo(const FFstrbuf* strbuf, FILE* file) {
 bool ffStrbufDecodeHexEscapeSequences(FFstrbuf* strbuf);
 
 #define FF_STRBUF_AUTO_DESTROY [[gnu::cleanup(ffStrbufDestroy)]] FFstrbuf
+#define FF_STRBUF_STATIC(str) { .allocated = 0, .length = (uint32_t) sizeof(str) - 1, .chars = str }

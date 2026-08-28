@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.12.0) # target_link_libraries with OBJECT libs & project homepage url
+cmake_minimum_required(VERSION 3.21.0) # C_STANDARD
 
 project(fastfetch
-    VERSION 2.66.0
+    VERSION 2.67.1
     LANGUAGES C
     DESCRIPTION "Fast neofetch-like system information tool"
     HOMEPAGE_URL "https://github.com/fastfetch-cli/fastfetch"
@@ -62,6 +62,7 @@ if(NOT PKG_CONFIG_FOUND)
 endif()
 
 include(CheckIncludeFile)
+include(CheckFunctionExists)
 
 if(LINUX)
     CHECK_INCLUDE_FILE("linux/version.h" HAVE_LINUX_VERSION_H)
@@ -77,7 +78,7 @@ endif()
 include(CMakeDependentOption)
 
 cmake_dependent_option(ENABLE_VULKAN "Enable vulkan" ON "LINUX OR APPLE OR FreeBSD OR OpenBSD OR NetBSD OR WIN32 OR ANDROID OR SunOS OR Haiku OR GNU" OFF)
-cmake_dependent_option(ENABLE_WAYLAND "Enable wayland-client" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD" OFF)
+cmake_dependent_option(ENABLE_WAYLAND "Enable wayland-client" ON "ANDROID OR LINUX OR FreeBSD OR OpenBSD OR NetBSD" OFF)
 cmake_dependent_option(ENABLE_XCB_RANDR "Enable xcb-randr" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR ANDROID OR SunOS OR GNU" OFF)
 cmake_dependent_option(ENABLE_XRANDR "Enable xrandr" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR ANDROID OR SunOS OR GNU" OFF)
 cmake_dependent_option(ENABLE_DRM "Enable libdrm" ON "LINUX OR FreeBSD OR OpenBSD OR NetBSD OR SunOS OR GNU" OFF)
@@ -434,6 +435,7 @@ set(LIBFASTFETCH_SRC
     src/common/impl/font.c
     src/common/impl/format.c
     src/common/impl/frequency.c
+    src/common/impl/genconfig.c
     src/common/impl/init.c
     src/common/impl/jsonconfig.c
     src/common/impl/library.c
@@ -482,6 +484,7 @@ set(LIBFASTFETCH_SRC
     src/detection/physicalmemory/physicalmemory.c
     src/detection/publicip/publicip.c
     src/detection/terminaltheme/terminaltheme.c
+    src/detection/top/top.c
     src/detection/terminalfont/terminalfont.c
     src/detection/terminalshell/terminalshell.c
     src/detection/version/version.c
@@ -557,6 +560,7 @@ set(LIBFASTFETCH_SRC
     src/modules/terminalsize/terminalsize.c
     src/modules/theme/theme.c
     src/modules/title/title.c
+    src/modules/top/top.c
     src/modules/tpm/tpm.c
     src/modules/uptime/uptime.c
     src/modules/users/users.c
@@ -649,6 +653,7 @@ if(LINUX)
         src/detection/terminalshell/terminalshell_linux.c
         src/detection/terminalsize/terminalsize_linux.c
         src/detection/theme/theme_linux.c
+        src/detection/top/top_linux.c
         src/detection/tpm/tpm_linux.c
         src/detection/uptime/uptime_linux.c
         src/detection/users/users_linux.c
@@ -689,6 +694,13 @@ elseif(ANDROID)
         src/detection/physicalmemory/physicalmemory_nosupport.c
         src/detection/diskio/diskio_linux.c
         src/detection/displayserver/displayserver_android.c
+        src/detection/displayserver/linux/wayland/wayland.c
+        src/detection/displayserver/linux/wayland/global-output.c
+        src/detection/displayserver/linux/wayland/kde-output.c
+        src/detection/displayserver/linux/wayland/wl-output-protocol.c
+        src/detection/displayserver/linux/wayland/wp-color-management-v1-protocol.c
+        src/detection/displayserver/linux/wayland/kde-output-device-v2-protocol.c
+        src/detection/displayserver/linux/wayland/xdg-output-unstable-v1-protocol.c
         src/detection/displayserver/linux/common.c
         src/detection/displayserver/linux/wmde.c
         src/detection/displayserver/linux/xcb.c
@@ -724,6 +736,7 @@ elseif(ANDROID)
         src/detection/terminalshell/terminalshell_linux.c
         src/detection/terminalsize/terminalsize_linux.c
         src/detection/theme/theme_linux.c
+        src/detection/top/top_linux.c
         src/detection/tpm/tpm_nosupport.c
         src/detection/uptime/uptime_linux.c
         src/detection/users/users_linux.c
@@ -820,11 +833,13 @@ elseif(FreeBSD)
     if(DragonFly)
         list(APPEND LIBFASTFETCH_SRC
             src/detection/bluetooth/bluetooth_nosupport.c
+            src/detection/top/top_dbsd.c
             src/detection/wifi/wifi_nosupport.c
         )
     else()
         list(APPEND LIBFASTFETCH_SRC
             src/detection/bluetooth/bluetooth_bsd.c
+            src/detection/top/top_bsd.c
             src/detection/wifi/wifi_bsd.c
         )
     endif()
@@ -902,6 +917,7 @@ elseif(NetBSD)
         src/detection/terminalsize/terminalsize_linux.c
         src/detection/theme/theme_linux.c
         src/detection/tpm/tpm_nosupport.c
+        src/detection/top/top_nbsd.c
         src/detection/uptime/uptime_bsd.c
         src/detection/users/users_linux.c
         src/detection/wallpaper/wallpaper_linux.c
@@ -962,7 +978,7 @@ elseif(OpenBSD)
         src/detection/gpu/gpu_bsddrm.c
         src/detection/gtk_qt/gtk.c
         src/detection/host/host_obsd.c
-        src/detection/lm/lm_nosupport.c
+        src/detection/lm/lm_linux.c
         src/detection/icons/icons_linux.c
         src/detection/initsystem/initsystem_linux.c
         src/detection/keyboard/keyboard_nosupport.c
@@ -988,6 +1004,7 @@ elseif(OpenBSD)
         src/detection/terminalsize/terminalsize_linux.c
         src/detection/theme/theme_linux.c
         src/detection/tpm/tpm_nosupport.c
+        src/detection/top/top_obsd.c
         src/detection/uptime/uptime_bsd.c
         src/detection/users/users_obsd.c
         src/detection/wallpaper/wallpaper_linux.c
@@ -1021,7 +1038,7 @@ elseif(APPLE)
         src/detection/cpu/cpu_apple.c
         src/detection/cpucache/cpucache_apple.c
         src/detection/cpuusage/cpuusage_apple.c
-        src/detection/cursor/cursor_apple.m
+        src/detection/cursor/cursor_apple.c
         src/detection/disk/disk_bsd.c
         src/detection/dns/dns_apple.c
         src/detection/physicaldisk/physicaldisk_apple.c
@@ -1033,7 +1050,7 @@ elseif(APPLE)
         src/detection/icons/icons_nosupport.c
         src/detection/initsystem/initsystem_linux.c
         src/detection/keyboard/keyboard_apple.c
-        src/detection/lm/lm_nosupport.c
+        src/detection/lm/lm_apple.m
         src/detection/loadavg/loadavg_bsd.c
         src/detection/libc/libc_apple.c
         src/detection/locale/locale_linux.c
@@ -1055,6 +1072,7 @@ elseif(APPLE)
         src/detection/terminalshell/terminalshell_linux.c
         src/detection/terminalsize/terminalsize_linux.c
         src/detection/theme/theme_apple.c
+        src/detection/top/top_apple.c
         src/detection/tpm/tpm_apple.c
         src/detection/uptime/uptime_bsd.c
         src/detection/users/users_linux.c
@@ -1062,7 +1080,7 @@ elseif(APPLE)
         src/detection/wifi/wifi_apple.m
         src/detection/wm/wm_apple.m
         src/detection/de/de_nosupport.c
-        src/detection/wmtheme/wmtheme_apple.m
+        src/detection/wmtheme/wmtheme_apple.c
         src/detection/camera/camera_apple.m
     )
     # CMAKE_SYSTEM_PROCESSOR has been normalized before
@@ -1126,7 +1144,7 @@ elseif(WIN32)
         src/detection/initsystem/initsystem_windows.c
         src/detection/keyboard/keyboard_windows.c
         src/detection/libc/libc_windows.cpp
-        src/detection/lm/lm_nosupport.c
+        src/detection/lm/lm_windows.c
         src/detection/loadavg/loadavg_nosupport.c
         src/detection/locale/locale_windows.c
         src/detection/localip/localip_windows.c
@@ -1147,6 +1165,7 @@ elseif(WIN32)
         src/detection/terminalshell/terminalshell_windows.c
         src/detection/terminalsize/terminalsize_windows.c
         src/detection/theme/theme_windows.c
+        src/detection/top/top_windows.c
         src/detection/tpm/tpm_windows.c
         src/detection/uptime/uptime_windows.c
         src/detection/users/users_windows.c
@@ -1167,7 +1186,7 @@ elseif(SunOS)
         src/common/impl/FFPlatform_unix.c
         src/common/impl/binary_linux.c
         src/common/impl/kmod_sunos.c
-        src/detection/battery/battery_nosupport.c
+        src/detection/battery/battery_sunos.c
         src/detection/bios/bios_windows.c
         src/detection/board/board_windows.c
         src/detection/bootmgr/bootmgr_nosupport.c
@@ -1208,7 +1227,7 @@ elseif(SunOS)
         src/detection/initsystem/initsystem_linux.c
         src/detection/keyboard/keyboard_nosupport.c
         src/detection/libc/libc_nosupport.c
-        src/detection/lm/lm_nosupport.c
+        src/detection/lm/lm_linux.c
         src/detection/loadavg/loadavg_sunos.c
         src/detection/locale/locale_linux.c
         src/detection/localip/localip_linux.c
@@ -1229,11 +1248,12 @@ elseif(SunOS)
         src/detection/terminalshell/terminalshell_linux.c
         src/detection/terminalsize/terminalsize_linux.c
         src/detection/theme/theme_linux.c
+        src/detection/top/top_sunos.c
         src/detection/tpm/tpm_nosupport.c
         src/detection/uptime/uptime_sunos.c
         src/detection/users/users_linux.c
         src/detection/wallpaper/wallpaper_linux.c
-        src/detection/wifi/wifi_nosupport.c
+        src/detection/wifi/wifi_sunos.c
         src/detection/wm/wm_nosupport.c
         src/detection/de/de_linux.c
         src/detection/wmtheme/wmtheme_linux.c
@@ -1280,7 +1300,6 @@ elseif(Haiku)
         src/detection/keyboard/keyboard_haiku.cpp
         src/detection/libc/libc_nosupport.c
         src/detection/lm/lm_nosupport.c
-        src/detection/loadavg/loadavg_nosupport.c
         src/detection/locale/locale_linux.c
         src/detection/localip/localip_linux.c
         src/detection/gamepad/gamepad_haiku.cpp
@@ -1300,16 +1319,24 @@ elseif(Haiku)
         src/detection/terminalshell/terminalshell_linux.c
         src/detection/terminalsize/terminalsize_linux.c
         src/detection/theme/theme_nosupport.c
+        src/detection/top/top_haiku.c
         src/detection/tpm/tpm_nosupport.c
         src/detection/uptime/uptime_haiku.c
         src/detection/users/users_linux.c
         src/detection/wallpaper/wallpaper_haiku.cpp
-        src/detection/wifi/wifi_nosupport.c
+        src/detection/wifi/wifi_haiku.cpp
         src/detection/wm/wm_nosupport.c
         src/detection/de/de_nosupport.c
         src/detection/wmtheme/wmtheme_haiku.cpp
         src/detection/camera/camera_nosupport.c
     )
+    set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} bsd)
+    check_function_exists(getloadavg HAVE_GETLOADAVG)
+    if(HAVE_GETLOADAVG)
+        list(APPEND LIBFASTFETCH_SRC src/detection/loadavg/loadavg_sunos.c)
+    else()
+        list(APPEND LIBFASTFETCH_SRC src/detection/loadavg/loadavg_nosupport.c)
+    endif()
 elseif(GNU)
     list(APPEND LIBFASTFETCH_SRC
         src/common/impl/dbus.c
@@ -1369,7 +1396,7 @@ elseif(GNU)
         src/detection/packages/packages_linux.c
         src/detection/packages/packages_nix.c
         src/detection/poweradapter/poweradapter_nosupport.c
-        src/detection/processes/processes_linux.c
+        src/detection/processes/processes_gnu.c
         src/detection/gtk_qt/qt.c
         src/detection/sound/sound_linux.c
         src/detection/swap/swap_linux.c
@@ -1377,6 +1404,7 @@ elseif(GNU)
         src/detection/terminalshell/terminalshell_linux.c
         src/detection/terminalsize/terminalsize_linux.c
         src/detection/theme/theme_linux.c
+        src/detection/top/top_gnu.c
         src/detection/tpm/tpm_nosupport.c
         src/detection/uptime/uptime_linux.c
         src/detection/users/users_linux.c
@@ -1427,7 +1455,6 @@ if(WIN32)
         endif()
     endif()
 endif()
-include(CheckFunctionExists)
 if(NOT WIN32)
     check_function_exists(pipe2 HAVE_PIPE2)
 endif()
@@ -1468,10 +1495,24 @@ endforeach()
 include(CheckCSourceCompiles)
 check_c_source_compiles("int main(void){int arr[1];return _Countof(arr);}" COMPILER_SUPPORTS_COUNT_OF)
 if(COMPILER_SUPPORTS_COUNT_OF)
-    message(STATUS "_Countof is supported by the compiler")
+    message(STATUS "C2Y _Countof is supported by the compiler")
     target_compile_definitions(libfastfetch PUBLIC FF_SUPPORTS_COUNT_OF=1)
 else()
-    message(STATUS "_Countof is NOT supported by the compiler")
+    message(STATUS "C2Y _Countof is NOT supported by the compiler")
+endif()
+
+# Test C23 compiler support
+check_c_source_compiles("enum my_enum: long{MY_ENUM_ZERO}; void test(void*p){} int main(int,const char**){[[gnu::cleanup(test)]] void* x=nullptr; return (int)MY_ENUM_ZERO;}" COMPILER_SUPPORTS_C23)
+if(NOT COMPILER_SUPPORTS_C23)
+    message(FATAL_ERROR "Compiler does not support C23. Please use a newer compiler.")
+endif()
+
+# A hack for AppleClang 17, which supports most C23 features we use except for the `auto` keyword.
+# See https://github.com/Homebrew/homebrew-core/pull/297403
+check_c_source_compiles("int main(void){auto v = 12.34; return (int)v;}" COMPILER_SUPPORTS_AUTO)
+if(NOT COMPILER_SUPPORTS_AUTO)
+    message(WARNING "Compiler does not support C23 'auto' keyword. A workaround will be applied.")
+    target_compile_definitions(libfastfetch PUBLIC $<$<COMPILE_LANGUAGE:C>:auto=__auto_type>)
 endif()
 
 if(yyjson_FOUND)
@@ -1554,7 +1595,7 @@ elseif(Haiku)
     target_compile_definitions(libfastfetch PUBLIC _GNU_SOURCE)
 elseif(GNU)
     # On Hurd PATH_MAX is not defined. Set an arbitrary limit as workaround.
-    target_compile_definitions(libfastfetch PUBLIC _GNU_SOURCE PATH_MAX=4096 O_PATH=0)
+    target_compile_definitions(libfastfetch PUBLIC _GNU_SOURCE PATH_MAX=4096 O_PATH=O_NORW)
 endif()
 
 if(APPLE)
@@ -1974,6 +2015,7 @@ elseif(SunOS)
 elseif(GNU)
     target_link_libraries(libfastfetch
         PRIVATE "m"
+        PRIVATE "ps"
     )
 elseif(ANDROID)
     target_link_libraries(libfastfetch
@@ -2005,6 +2047,7 @@ elseif(Haiku)
         PRIVATE "GL"
         PRIVATE "be"
         PRIVATE "gnu"
+        PRIVATE "bsd"
     )
 endif()
 

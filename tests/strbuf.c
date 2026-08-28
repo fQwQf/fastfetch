@@ -23,6 +23,8 @@ int shouldNotBeCalled(int c) {
     exit(1);
 }
 
+const FFstrbuf testCreateStatic = FF_STRBUF_STATIC("TEST");
+
 int main(void) {
     FFstrbuf strbuf;
 
@@ -414,7 +416,7 @@ int main(void) {
     ffStrbufInit(&strbuf);
     ffStrbufEnsureFixedLengthFree(&strbuf, 0);
     VERIFY(strbuf.length == 0);
-    VERIFY(strbuf.allocated == 0);
+    VERIFY(strbuf.allocated == 1);
     ffStrbufDestroy(&strbuf);
 
     // ffStrbufEnsureFixedLengthFree / empty buffer but oldFree >= newFree

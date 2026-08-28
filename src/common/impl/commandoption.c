@@ -67,13 +67,13 @@ void ffPrepareCommandOption(FFdata* data) {
     char* moduleType = nullptr;
     size_t moduleLen = 0;
     while (ffStrbufGetdelim(&moduleType, &moduleLen, ':', &data->structure)) {
-#define FF_IF_MODULE_MATCH(moduleNameConstant) if (moduleLen == strlen(moduleNameConstant) && ffStrEqualsIgnCase(moduleType, moduleNameConstant) && !ffStrbufSeparatedContainIgnCaseS(&data->structureDisabled, moduleNameConstant, ':'))
+#define FF_IF_MODULE_MATCH(moduleNameConstant) if (ffStrEqualsIgnCase(moduleType, moduleNameConstant) && !ffStrbufSeparatedContainIgnCaseS(&data->structureDisabled, moduleNameConstant, ':'))
 
         switch (moduleType[0]) {
             #if !FF_MODULE_DISABLE_CPUUSAGE
             case 'C':
             case 'c':
-                FF_IF_MODULE_MATCH(FF_CPUUSAGE_MODULE_NAME)
+                FF_IF_MODULE_MATCH(ffCPUUsageModuleInfo.name)
                 ffPrepareCPUUsage();
                 break;
             #endif
@@ -81,7 +81,7 @@ void ffPrepareCommandOption(FFdata* data) {
             #if !FF_MODULE_DISABLE_DISKIO
             case 'D':
             case 'd':
-                FF_IF_MODULE_MATCH(FF_DISKIO_MODULE_NAME) {
+                FF_IF_MODULE_MATCH(ffDiskIOModuleInfo.name) {
                     [[gnu::cleanup(ffDestroyDiskIOOptions)]] FFDiskIOOptions options;
                     ffInitDiskIOOptions(&options);
                     ffPrepareDiskIO(&options);
@@ -92,7 +92,7 @@ void ffPrepareCommandOption(FFdata* data) {
             #if !FF_MODULE_DISABLE_NETIO
             case 'N':
             case 'n':
-                FF_IF_MODULE_MATCH(FF_NETIO_MODULE_NAME) {
+                FF_IF_MODULE_MATCH(ffNetIOModuleInfo.name) {
                     [[gnu::cleanup(ffDestroyNetIOOptions)]] FFNetIOOptions options;
                     ffInitNetIOOptions(&options);
                     ffPrepareNetIO(&options);
@@ -103,7 +103,7 @@ void ffPrepareCommandOption(FFdata* data) {
             #if !FF_MODULE_DISABLE_PUBLICIP
             case 'P':
             case 'p':
-                FF_IF_MODULE_MATCH(FF_PUBLICIP_MODULE_NAME) {
+                FF_IF_MODULE_MATCH(ffPublicIPModuleInfo.name) {
                     [[gnu::cleanup(ffDestroyPublicIpOptions)]] FFPublicIPOptions options;
                     ffInitPublicIpOptions(&options);
                     ffPreparePublicIp(&options);
@@ -111,10 +111,21 @@ void ffPrepareCommandOption(FFdata* data) {
                 break;
             #endif
 
+            #if !FF_MODULE_DISABLE_TOP
+            case 'T':
+            case 't':
+                FF_IF_MODULE_MATCH(ffTopModuleInfo.name) {
+                    [[gnu::cleanup(ffDestroyTopOptions)]] FFTopOptions options;
+                    ffInitTopOptions(&options);
+                    ffPrepareTopProcesses(options.showTypes);
+                }
+                break;
+            #endif
+
             #if !FF_MODULE_DISABLE_WEATHER
             case 'W':
             case 'w':
-                FF_IF_MODULE_MATCH(FF_WEATHER_MODULE_NAME) {
+                FF_IF_MODULE_MATCH(ffWeatherModuleInfo.name) {
                     [[gnu::cleanup(ffDestroyWeatherOptions)]] FFWeatherOptions options;
                     ffInitWeatherOptions(&options);
                     ffPrepareWeather(&options);
@@ -175,7 +186,7 @@ static bool parseStructureCommand(
         for (FFModuleBaseInfo** modules = ffModuleInfos[toupper(line[0]) - 'A']; *modules; ++modules) {
             FFModuleBaseInfo* baseInfo = *modules;
             if (ffStrEqualsIgnCase(line, baseInfo->name)) {
-                uint8_t optionBuf[FF_OPTION_MAX_SIZE];
+                alignas(uint64_t) uint8_t optionBuf[FF_OPTION_MAX_SIZE];
                 baseInfo->initOptions(optionBuf);
                 if (data->resultDoc != nullptr) {
                     fn(data, baseInfo, optionBuf);
@@ -244,11 +255,6 @@ void ffPrintCommandOption(FFdata* data) {
 }
 
 void ffMigrateCommandOptionToJsonc(FFdata* data) {
-    // If we don't have a custom structure, use the default one
-    if (data->structure.length == 0) {
-        ffStrbufAppendS(&data->structure, FASTFETCH_DATATEXT_STRUCTURE); // Cannot use `ffStrbufSetStatic` here because we will modify the string
-    }
-
     char* moduleType = nullptr;
     size_t moduleLen = 0;
     while (ffStrbufGetdelim(&moduleType, &moduleLen, ':', &data->structure)) {
